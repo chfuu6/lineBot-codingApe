@@ -35,7 +35,7 @@ def callback():
 def handle_message(event):
     line_bot_api.reply_message(
         event.reply_token,
-        TextSendMessage(text='event.message.text'))
+        TextSendMessage(text='第38行裡的text=修改成自己想傳送的文字!!!'))
 
 if __name__ == "__main__":
     app.run()
