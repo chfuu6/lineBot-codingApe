@@ -5,6 +5,9 @@ from linebot.models import (MessageEvent, TextMessage, TextSendMessage, Template
                             CarouselTemplate, MessageAction, URIAction, ImageCarouselColumn, ImageCarouselTemplate,
                             ImageSendMessage, ButtonsTemplate)
 import os
+import requests
+from bs4 import BeautifulSoup
+import random
 
 line_bot_api = LineBotApi(os.getenv("LINE_CHANNEL_ACCESS_TOKEN"))
 line_handler = WebhookHandler(os.getenv("LINE_CHANNEL_SECRET"))
@@ -14,7 +17,6 @@ app = Flask(__name__)
 @app.route('/')
 def home():
     return 'Hello, World!'
-
 
 @app.route("/webhook", methods=['POST'])
 def callback():
@@ -30,6 +32,17 @@ def callback():
         abort(400)
     return 'OK'
 
+def movie_rank(url):
+    soup = BeautifulSoup(requests.get(url).text)
+    first = soup.find('dl', class_ = 'rank_list_box').find('h2').text
+    movie_rank = '第1名：' + first + '\n'
+
+    movie_list = soup.find_all('div', class_ = 'rank_txt')
+    for index, info in enumerate(movie_list):
+        movie = info.text
+        movie_rank += '第{}名：{}\n'.format(str(index + 2), movie)
+
+    return movie_rank
 
 @line_handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
@@ -57,6 +70,16 @@ def handle_message(event):
                 ])
             )
         line_bot_api.reply_message(event.reply_token, button_template)
+
+    if event.message.text == '台灣排行榜':
+        taiwan_movie_rank = movie_rank('https://movies.yahoo.com.tw/chart.html')
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text = taiwan_movie_rank))
+    if event.message.text == '全美排行榜':
+        US_movie_rank = movie_rank('https://movies.yahoo.com.tw/chart.html?cate=us')
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text = US_movie_rank))
+    if event.message.text == '年度排行榜':
+        year_movie_rank = movie_rank('https://movies.yahoo.com.tw/chart.html?cate=year')
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text = year_movie_rank))
 
 if __name__ == "__main__":
     app.run()
