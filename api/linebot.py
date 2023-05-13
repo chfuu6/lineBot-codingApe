@@ -3,7 +3,7 @@ from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import (MessageEvent, TextMessage, TextSendMessage, TemplateSendMessage, CarouselColumn,
                             CarouselTemplate, MessageAction, URIAction, ImageCarouselColumn, ImageCarouselTemplate,
-                            ImageSendMessage)
+                            ImageSendMessage, ButtonsTemplate)
 import os
 
 line_bot_api = LineBotApi(os.getenv("LINE_CHANNEL_ACCESS_TOKEN"))
@@ -33,9 +33,30 @@ def callback():
 
 @line_handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
-    line_bot_api.reply_message(
-        event.reply_token,
-        TextSendMessage(text='第38行裡的text=修改成自己想傳送的文字!!!'))
+
+    if event.message.text == '排行':
+        button_template = TemplateSendMessage(
+            alt_text = 'button template',
+            template = ButtonsTemplate(
+                thumbnail_image_url='https://i.imgur.com/a5MK3cu.jpeg',
+                title='Yahoo電影排行榜',
+                text='請選擇',
+                actions = [
+                    MessageAction(
+                        label='台灣排行榜',
+                        text='台灣排行榜'
+                    ),
+                    MessageAction(
+                        label='全美排行榜',
+                        text='全美排行榜'
+                    ),
+                    MessageAction(
+                        label='年度排行榜',
+                        text='年度排行榜'
+                    )
+                ])
+            )
+        line_bot_api.reply_message(event.reply_token, button_template)
 
 if __name__ == "__main__":
     app.run()
