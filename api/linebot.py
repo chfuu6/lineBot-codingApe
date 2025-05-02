@@ -32,21 +32,25 @@ def callback():
         abort(400)
     return 'OK'
 
-def random_ptt_boards():
-    board_info = []
-    response = requests.get('https://www.ptt.cc/bbs/index.html')
+def newest_movie():
+    movie_info = []
+    response = requests.get('https://movies.yahoo.com.tw/movie_thisweek.html')
     soup = BeautifulSoup(response.text, 'html.parser')
+    data = soup.find_all('div', class_ = 'release_info_text')
 
-    # 找到所有討論版的名稱和URL
-    data = soup.find_all('div', class_='b-ent')
+    for index, info in enumerate(data[:10]):
+        movie_name = info.find('div', class_ = 'release_movie_name').find('a').text
+        movie_name = movie_name.strip()
 
-    for board in data:
-        board_name = board.find('div', class_='board-name').text
-        board_url = 'https://www.ptt.cc' + board.find('a')['href']
-        temp = [board_name, board_url]  # 把板名和 URL 整理成清單
-        board_info.append(temp)
+        try:
+            trailerUrl = soup.find_all('div',class_='release_btn color_btnbox')[index].find_all('a')[1]['href']
+        except:
+            trailerUrl = 'Yahoo電影沒有這部的預告片喔!'
 
-    return board_info
+        imgSrc = soup.find_all('div',class_='release_foto')[index].find('img')['data-src']
+        temp = [movie_name, trailerUrl, imgSrc] #把一部電影的資訊整理成清單
+        movie_info.append(temp) #再把清單加到movie_info
+    return movie_info
 
 def movie_rank(url):
     soup = BeautifulSoup(requests.get(url).text)
@@ -63,40 +67,70 @@ def movie_rank(url):
 @line_handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
 
-    # 如果收到訊息是「PTT」就隨機選三個板
-    if event.message.text == 'PTT':
-        board_info = random_ptt_boards()
-        # 從 board_info 裡隨機挑選三個板
-        board_list = random.sample(board_info, k=3)
+    if event.message.text == '新片':
 
-        board_template = TemplateSendMessage(
-            alt_text='PTT boards template',
-            template=ImageCarouselTemplate(
-                columns=[
+        movie_info = newest_movie()
+        #從movie_info大清單裡，挑三個
+        movie_list = random.sample(movie_info, k = 3)
+
+        movie_template = TemplateSendMessage(
+            alt_text = 'movie template',
+            template = ImageCarouselTemplate(
+                columns = [
                     ImageCarouselColumn(
-                        image_url='https://down-tw.img.susercontent.com/file/4968c4b4f185386a219b6396c2698dfc',  # 這裡可以用 PTT 的通用 logo
-                        action=URIAction(
-                            label=board_list[0][0],  # 第一個板名
-                            uri=board_list[0][1]     # 第一個板的 URL
-                        )),
+                        image_url = movie_list[0][2],
+                        action = URIAction(
+                            label = movie_list[0][0],
+                            uri = movie_list[0][1])),
+
                     ImageCarouselColumn(
-                        image_url='https://down-tw.img.susercontent.com/file/4968c4b4f185386a219b6396c2698dfc',
-                        action=URIAction(
-                            label=board_list[1][0],  # 第二個板名
-                            uri=board_list[1][1]     # 第二個板的 URL
-                        )),
+                        image_url = movie_list[1][2],
+                        action = URIAction(
+                            label = movie_list[1][0],
+                            uri = movie_list[1][1])),
+
                     ImageCarouselColumn(
-                        image_url='https://down-tw.img.susercontent.com/file/4968c4b4f185386a219b6396c2698dfc',
-                        action=URIAction(
-                            label=board_list[2][0],  # 第三個板名
-                            uri=board_list[2][1]     # 第三個板的 URL
-                        ))
-                ]
+                        image_url = movie_list[2][2],
+                        action = URIAction(
+                            label = movie_list[2][0],
+                            uri = movie_list[2][1]))
+                ])
             )
-        )
-        line_bot_api.reply_message(event.reply_token, board_template)
+        line_bot_api.reply_message(event.reply_token, movie_template)
 
-    
+    if event.message.text == '排行':
+        button_template = TemplateSendMessage(
+            alt_text = 'button template',
+            template = ButtonsTemplate(
+                thumbnail_image_url='https://i.imgur.com/a5MK3cu.jpeg',
+                title='Yahoo電影排行榜',
+                text='請選擇',
+                actions = [
+                    MessageAction(
+                        label='台灣排行榜',
+                        text='台灣排行榜'
+                    ),
+                    MessageAction(
+                        label='全美排行榜',
+                        text='全美排行榜'
+                    ),
+                    MessageAction(
+                        label='年度排行榜',
+                        text='年度排行榜'
+                    )
+                ])
+            )
+        line_bot_api.reply_message(event.reply_token, button_template)
+
+    if event.message.text == '台灣排行榜':
+        taiwan_movie_rank = movie_rank('https://movies.yahoo.com.tw/chart.html')
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text = taiwan_movie_rank))
+    if event.message.text == '全美排行榜':
+        US_movie_rank = movie_rank('https://movies.yahoo.com.tw/chart.html?cate=us')
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text = US_movie_rank))
+    if event.message.text == '年度排行榜':
+        year_movie_rank = movie_rank('https://movies.yahoo.com.tw/chart.html?cate=year')
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text = year_movie_rank))
 
 if __name__ == "__main__":
     app.run()
